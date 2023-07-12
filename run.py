@@ -122,7 +122,68 @@ def predict_grail_rank(model, device, neg_path, is_eval=False, ablation=0):
     print('hits10: %f , hits5: %f , hits1: %f , mrr: %f' % (hits10, hits5, hits1, mrr))
 
     return hits10
+
+
+
+def auc_pr(model, device, neg_path, is_eval=False):
+    data_dict = np.load(neg_path, allow_pickle=True).item()
+    n = len(data_dict)
     
+    rands = [5, 6]
+    auc_pr_scores = []
+    aucs = []
+    test_batch_size = 128
+
+    for rand in rands:
+        pos_data, neg_data = [], []
+        for pos_id in data_dict.keys():  
+            if np.random.uniform() < 0.5:
+                data = data_dict[pos_id]['neg_head_examples']
+            else:
+                data = data_dict[pos_id]['neg_tail_examples']
+
+            if is_eval==True:
+                n = len(data[-1])
+                nn = len(data[-1][0])
+                # for i in range(n):
+                    #data[-1][i] = [1] * 4 + [0] * (nn - 4) #mask paths
+                    # data[-1][i][2:4] = [0] * 2 #mask head & tail
+
+            pos_data.append([data[i][0] for i in range(len(data))])  
+            neg_data.append([data[i][rand] for i in range(len(data))])
+
+        num_iteration = math.ceil(len(pos_data) / test_batch_size)
+
+        for i in range(num_iteration):
+            pos_data_tmp = pos_data[i * test_batch_size : (i + 1) * test_batch_size]
+            neg_data_tmp = neg_data[i * test_batch_size : (i + 1) * test_batch_size]
+            pos_data_convert_tmp = convert_neg_sample(pos_data_tmp, len(pos_data_tmp))
+            neg_data_convert_tmp = convert_neg_sample(neg_data_tmp, len(pos_data_tmp))
+            pos_data_convert_tmp[3] = list(pos_data_convert_tmp[3])
+            neg_data_convert_tmp[3] = list(neg_data_convert_tmp[3])
+        
+            pos_fc_out_tmp = model(pos_data_convert_tmp, device)#[0:100]
+            neg_fc_out_tmp = model(neg_data_convert_tmp, device)#[0:100]
+            if i == 0:
+                pos_fc_out = pos_fc_out_tmp
+                neg_fc_out = neg_fc_out_tmp
+            else:
+                pos_fc_out = torch.cat((pos_fc_out, pos_fc_out_tmp), 0)
+                neg_fc_out = torch.cat((neg_fc_out, neg_fc_out_tmp), 0)
+
+        
+        pos_labels = [1 for i in range(len(pos_fc_out))]
+        neg_labels = [0 for i in range(len(pos_fc_out))]
+
+        all_scores = torch.cat((pos_fc_out, neg_fc_out), 0).cpu()
+        
+        auc_pr_score = average_precision_score(pos_labels+neg_labels, all_scores)
+        auc = roc_auc_score(pos_labels+neg_labels, all_scores)
+        auc_pr_scores.append(auc_pr_score)
+        aucs.append(auc)
+
+    return aucs, auc_pr_scores
+
 
 class TrainGraph(object):
     def __init__(self, raw_train, vocab, relation_context, neg_examples_path):
@@ -452,16 +513,10 @@ def main(args):
             model.eval()
             print('-----------eval epoch: ', epoch, '-------------')
             with torch.no_grad():
-                #print('results for AUC-PR')
-                #auc_pr(model=model, neg_path=args.neg_save_path_valid, device=device)
                 
                 print('results for grail rank metrics')
                 eval_performance = predict_grail_rank(
                         model=model, device=device, neg_path=args.neg_save_path_valid)
-
-                """ print('results for regular rank metrics')       
-                eval_performance = predict_regular_rank(model=model, predict_loader=predict_loader, 
-                        vocabulary=vocabulary_relation, device=device) """
 
     if args.do_test:
         print('Predict on Test Set')
@@ -479,9 +534,9 @@ def main(args):
         eval_performance = predict_grail_rank(
                 model=model, device=device, neg_path=args.neg_save_path_test)
         t2=time.time()
-        print('程序运行时间:%s秒' % ((t2 - t1)*1))
+        print('Running tims is: %s seconds' % ((t2 - t1)*1))
 
-        """ 可解释性分析代码 """
+        """ Explaination of REPORT """
         # data_dict = np.load(args.neg_save_path_test, allow_pickle=True).item()
         # pick_data = [2]
         # positive_data = []
@@ -495,17 +550,13 @@ def main(args):
         # cache = get_local.cache
         # attention_maps = cache['multi_head_attention.compute_attention']
 
-        """ print(len(attention_maps))# 5
-        print(attention_maps[4].shape) #[1,4,304,304]
-        print(attention_maps[4][:,0,1,:]) """
         if args.task[-3:] == 'ind':
-            #在test时应该取和train graph中相同的vocabulary
             vocab_path = os.path.join('data_preprocessed', args.task[:-4], 'vocab_rel.txt')
         else:
             vocab_path = os.path.join('data_preprocessed', args.task, 'vocab_rel.txt')
         vocab = Vocabulary(vocab_file=vocab_path)
 
-        """ 可解释性分析代码 """
+        """ Explaination of REPORT (cont.) """
         # for head_id in range(4):
         #     relation_weights = attention_maps[4][:,head_id,1,:]
         #     print('attention head:', head_id)
