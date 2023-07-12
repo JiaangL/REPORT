@@ -2,10 +2,20 @@
 Released code of our ICASSP'23 oral paper: [Inductive Relation Prediction from Relational Paths and Context with Hierarchical Transformers](https://arxiv.org/abs/2304.00215)
 
 ## Requirements
-In short, we use ```networkx==2.7``` and ```pandas==1.4.1``` for data preprocessing, and use ```pytorch=1.10.0``` to run the experiments. You can set the environment accordingly, or use the same environment as ours by running `pip install -r requirements.txt`.
+In short, we use ```networkx==2.7``` and ```pandas==1.4.1``` for data preprocessing, and use ```pytorch=1.10.0``` to run the experiments. You can set the environment accordingly, or use the same environment as ours by running 
+```bash
+pip install -r requirements.txt
+```
 
 ## Data Preprocess
-todo
+run ```preprocess_data.sh``` to preprocess raw data from ```.\data_raw```.
+```bash
+bash preprocess_data.sh
+```
 
 ## Run  Experiments
-todo
+Config hyperparameters in `run.py`, then run it: 
+```bash
+python run.py --task WN18RR_v1 --cuda_id 0
+```
+We use [Visualizer](https://github.com/luo3300612/Visualizer) to visualize the attention map and obtain the explanations of REPORT results in our paper.
