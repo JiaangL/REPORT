@@ -140,13 +140,18 @@ class HierarchyTransformer(nn.Module):
         
         return triplet_score
 
-    def get_hinge_loss(self, pos_triplet_score, neg_score, device):
-        hinge_loss = nn.MarginRankingLoss(margin=self.margin, reduction='sum')
-        target = -torch.ones(pos_triplet_score.shape[0]).to(device)
+    
+    def get_bce_loss(self, pos_score, neg_score, device, num_negative=1):
+        bce_loss = nn.BCEWithLogitsLoss(reduction='sum')
+        pos_labels = torch.ones(pos_score.shape[0]).to(device)
+        neg_labels = torch.zeros(pos_score.shape[0]).to(device)
+        all_labels = torch.cat((pos_labels, neg_labels), 0)
         
-        all_hinge_loss = hinge_loss(neg_score, pos_triplet_score, target)
+        all_labels = torch.cat((pos_labels, neg_labels), 0)
+        all_bce_loss = bce_loss(torch.cat((pos_score, neg_score), 0), all_labels)
 
-        return all_hinge_loss
+        return all_bce_loss
+
 
     def path_representation(self, path, path_mask, device):
         tmp = torch.tensor(path, dtype=torch.int).to(device)
