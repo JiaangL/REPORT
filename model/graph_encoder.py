@@ -115,7 +115,7 @@ class multi_head_attention(torch.nn.Module):
             print(values.shape)
             raise ValueError(
                 "Inputs: quries, keys and values should all be 3-D tensors.")
-        q, k, v = self.__compute_qkv(queries, keys, values, self.n_head, self.d_key, self.d_value)
+        q, k, v = self.__compute_qkv(queries, keys, values)
         
         q = self.__split_heads(q, self.n_head)
         k = self.__split_heads(k, self.n_head)
