@@ -477,6 +477,9 @@ def main(args):
                     save_path = os.path.join(args.checkpoints, args.task, 
                         str(args.embedding_size)+'_'+str(args.learning_rate)+'_'+str(args.batch_size)
                         +'_'+str(args.num_attention_heads)+'_'+"best_yet")
+                    # create the path if not exists
+                    if not os.path.exists(save_path):
+                        os.makedirs(os.path.join(args.checkpoints, args.task))
                     torch.save(model, save_path)
                     print('Better models found w.r.t auc_roc. Saved it!')
 
